@@ -49,6 +49,15 @@ async def message(update, context):
   })
   dialog.list.clear()
 
+async def profile(update, context):
+  dialog.mode = 'profile'
+  dialog.user.clear()
+  dialog.counter = 0
+  msg = load_message('profile')
+  await send_photo(update, context, 'profile')
+  await send_text(update, context, msg)
+  await send_text(update, context, 'Скільки вам років?')
+
 
 # handlers
 async def send_text_handler(update, context):
@@ -58,6 +67,8 @@ async def send_text_handler(update, context):
     await date_dialog(update, context)
   elif dialog.mode == 'message':
     await message_dialog(update, context)
+  elif dialog.mode == 'profile':
+    await profile_dialog(update, context)
   else:
     await send_text(update, context, 'Hello ' + update.message.text)
 
@@ -97,9 +108,35 @@ async def message_dialog(update, context):
   text = update.message.text
   dialog.list.append(text)
 
+async def profile_dialog(update, context):
+  text = update.message.text
+  dialog.counter += 1
+  if dialog.counter == 1:
+    dialog.user['age'] = text
+    await send_text(update, context, 'Ким ви працюєте?')
+  if dialog.counter == 2:
+    dialog.user['occupation'] = text
+    await send_text(update, context, 'Яке у вас хоббі?')
+  if dialog.counter == 3:
+    dialog.user['hobby'] = text
+    await send_text(update, context, 'Що вам не подобається в людях?')
+  if dialog.counter == 4:
+    dialog.user['annoys'] = text
+    await send_text(update, context, 'Мета знайомства?')
+  if dialog.counter == 5:
+    dialog.user['goals'] = text
+    prompt = load_prompt('profile')
+    user_info = dialog_user_info_to_str(dialog.user)
+    msg = await send_text(update, context, 'Chat gpt генерує профіль...')
+    answer = await chatgpt.send_question(prompt, user_info)
+    await msg.edit_text(answer)
+
+
 dialog = Dialog()
 dialog.mode = None
 dialog.list = []
+dialog.user = {}
+dialog.counter = 0
 
 chatgpt = ChatGptService(token=OPEN_AI_TOKEN)
 
@@ -108,6 +145,7 @@ app.add_handler(CommandHandler('start', start))
 app.add_handler(CommandHandler('gpt', gpt))
 app.add_handler(CommandHandler('date', date))
 app.add_handler(CommandHandler('message', message))
+app.add_handler(CommandHandler('profile', profile))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, send_text_handler))
 app.add_handler(CallbackQueryHandler(date_button_handler, pattern='^date_.*'))
 app.add_handler(CallbackQueryHandler(message_button_handler, pattern='^message_.*'))
